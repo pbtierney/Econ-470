@@ -1,0 +1,59 @@
+import matplotlib.pyplot as plt
+import seaborn as sns
+import pandas as pd
+import numpy as np
+
+# Load the dataset
+data = pd.read_stata('data_abortions_20110196.dta')
+
+# Create the month variable centered around July 2007
+data['m'] = data.index - 103  # Adjusting by 103 to center around July 2007
+
+# Sum abortions across all regions
+columns_to_sum = [
+    'n_ive_and', 'n_ive_val', 'n_ive_rioja', 'n_ive_cat', 'n_ive_can',
+    'n_ive_mad', 'n_ive_gal', 'n_ive_bal', 'n_ive_pv', 'n_ive_castlm',
+    'n_ive_ast', 'n_ive_arag'
+]
+data['n_tot'] = data[columns_to_sum].sum(axis=1)
+
+# Generate post dummy variable
+data['post'] = (data['m'] >= 0).astype(int)
+
+# Restrict the dataset to the desired period
+data_rdd = data[(data['m'] >= -30) & (data['m'] <= 20)]
+
+# Scatter plot of the actual number of abortions
+plt.figure(figsize=(12, 8))
+sns.scatterplot(x='m', y='n_tot', data=data_rdd, hue='post', palette=['blue', 'red'])
+
+# Fit the regression models using numpy
+pre_intervention = data_rdd[data_rdd['m'] < 0]
+post_intervention = data_rdd[data_rdd['m'] >= 0]
+
+# Polyfit for pre-intervention
+p_pre = np.polyfit(pre_intervention['m'], pre_intervention['n_tot'], 1)
+# Polyfit for post-intervention
+p_post = np.polyfit(post_intervention['m'], post_intervention['n_tot'], 1)
+
+# Generate a range of values for m to plot the regression lines
+m_values = np.linspace(-30, 20, 500)
+
+# Plot the regression lines
+plt.plot(m_values[m_values < 0], np.polyval(p_pre, m_values[m_values < 0]), color='blue', label='Pre-July 2007 Fit')
+plt.plot(m_values[m_values >= 0], np.polyval(p_post, m_values[m_values >= 0]), color='red', label='Post-July 2007 Fit')
+
+# Draw a vertical line for the cutoff at July 2007
+plt.axvline(x=0, color='black', linestyle='--')
+
+# Labels and title
+plt.xlabel('Month of abortion (0 = July 2007)')
+plt.ylabel('Number of abortions')
+plt.title('Number of Abortions by Month, 2005 - 2009')
+plt.legend()
+plt.xlim(-30, 20)
+plt.ylim(data_rdd['n_tot'].min() - 1000, data_rdd['n_tot'].max() + 1000)
+
+# Show the plot
+plt.tight_layout()
+plt.show()
