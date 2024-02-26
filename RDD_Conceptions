@@ -1,0 +1,57 @@
+import pandas as pd
+import matplotlib.pyplot as plt
+from sklearn.linear_model import LinearRegression
+
+# Function to prepare the data and plot the RDD graph
+def rdd_plot(data_path, cutoff_year, cutoff_month, start_year, end_year):
+    # Load the data
+    data_births = pd.read_stata(data_path)
+
+    # Calculate the 'months_since_cutoff' column
+    data_births['months_since_cutoff'] = ((data_births['year'] - cutoff_year) * 12 + data_births['mesp'] - cutoff_month)
+
+    # Filter the data for the relevant period
+    start_period = (start_year - cutoff_year) * 12 + 7 - cutoff_month
+    end_period = (end_year - cutoff_year) * 12 + 7 - cutoff_month
+    data_births_filtered = data_births[(data_births['months_since_cutoff'] >= start_period) &
+                                       (data_births['months_since_cutoff'] <= end_period)]
+
+    # Aggregate the data to count conceptions by month
+    conceptions_by_month = data_births_filtered.groupby('months_since_cutoff').size().reset_index(name='number_of_conceptions')
+
+    # Separate the data into before and after the cut-off
+    before_cutoff = conceptions_by_month[conceptions_by_month['months_since_cutoff'] < 0]
+    after_cutoff = conceptions_by_month[conceptions_by_month['months_since_cutoff'] >= 0]
+
+    # Fit the linear regression models
+    model_before = LinearRegression()
+    model_after = LinearRegression()
+    model_before.fit(before_cutoff[['months_since_cutoff']], before_cutoff['number_of_conceptions'])
+    model_after.fit(after_cutoff[['months_since_cutoff']], after_cutoff['number_of_conceptions'])
+
+    # Generate predictions for the regression lines
+    before_cutoff['predictions'] = model_before.predict(before_cutoff[['months_since_cutoff']])
+    after_cutoff['predictions'] = model_after.predict(after_cutoff[['months_since_cutoff']])
+
+    # Plot the data and regression lines
+    plt.figure(figsize=(10, 6))
+    plt.scatter(conceptions_by_month['months_since_cutoff'], conceptions_by_month['number_of_conceptions'], color='grey', alpha=0.6)
+    plt.plot(before_cutoff['months_since_cutoff'], before_cutoff['predictions'], color='black', linestyle='--')
+    plt.plot(after_cutoff['months_since_cutoff'], after_cutoff['predictions'], color='black', linestyle='--')
+    plt.title('Number of conceptions by month, 2005–2009')
+    plt.xlabel('Month of conception (0 = July 2007)')
+    plt.ylabel('Number of conceptions')
+    plt.axvline(x=0, color='red', linestyle='-', linewidth=2)
+    plt.show()
+
+# Define the parameters for the plot
+data_path = 'data_births_20110196.dta'
+cutoff_year = 2007
+cutoff_month = 7
+start_year = 2005
+end_year = 2009
+
+# The function call is commented out to prevent execution within this environment.
+# Uncomment the following line and execute this code in your own environment to generate the plot.
+rdd_plot(data_path, cutoff_year, cutoff_month, start_year, end_year)
+
